@@ -5,12 +5,12 @@ import smtplib
 import time
 import base64 
 import os
-
-from sympy import content
 import personal
 import shutil 
-from email.message import EmailMessage
 from bs4 import BeautifulSoup
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
 
 EMAIL_ADD = personal.EMAIL_ADDRESS
 EMAIL_PASS = personal.EMAIL_PASSWORD
@@ -28,10 +28,6 @@ def data_get(URL):
 def data_find(soup):
     imageList = []
     productFeatureList = []
-    msg = EmailMessage()
-    msg['Subject'] = "Some Graphics cards Poo Boy"
-    msg['From'] = EMAIL_ADD
-    msg['To'] = "joe.sealy@hotmail.co.uk"
 
     results = soup.find_all("li", class_ = "s-item s-item__pl-on-bottom s-item--watch-at-corner", limit = 2)
     for products in results:
@@ -44,15 +40,12 @@ def data_find(soup):
         buyItNow = products.find("span", class_ = "s-item__purchase-options-with-icon")
         link = products.find("a", class_ = "s-item__link")["href"]
         imgLink = products.find("img", class_ = "s-item__image-img")["src"]
+        image = imgEmbed(imgLink)
+        #imageList.append(image)
 
-        first_char = condition[0]
-        if(first_char == "O"):
-            condition = "Opened But Never Used"
-        elif(first_char == "P"):
-            condition = "Pre owned"  
-
-        sellingTemp = sellingPrice.split("£")
-        sellingPrice = (sellingTemp[1] + " Pounds")
+        title = asciiErrorCheck(title)
+        condition = asciiErrorCheck(condition)
+        sellingPrice = asciiErrorCheck(sellingPrice)
 
         if buyItNow == None:
             buyItNow = "NaN"
@@ -63,24 +56,39 @@ def data_find(soup):
             bids = "NaN"
             timeLeft = "NaN"
 
-    
         productFeatureList.append(f"Title: {title}\nCondition: {condition}\n"
         f"Selling Price: {sellingPrice}\nTime Left: {timeLeft}\n"
-        f"Bids: {bids}\nBuy it Now?: {buyItNow}\nLink: {link}\n")
-        
-        image = imgEmbed(imgLink)
-        imageList.append(image)
+        f"Bids: {bids}\nBuy it Now?: {buyItNow}\nLink: {link}\n"
+        f"________________________________________________________________________________________________________\n\n")
 
-    msg.set_content(productFeatureList)
 
-    for image in imageList:
-        with open(image, "rb") as f:
-            file_data = f.read()
-            file_type = imghdr.what(f.name)
-            file_name = f.name
-        msg.add_attachment(file_data, maintype = "image", subtype = file_type, filename = file_name)
+    msg = productFeatureList
+    msg = concat(msg)
+    subject = "Some Gcards poo boy"
+    message = f"Subject:{subject}\n\n{msg}".format(subject, msg)
 
-    return msg
+    return message, imageList
+
+def asciiErrorCheck(text):
+    asciiErrorFree = []
+    fixedText = ""
+    asciiCharList = list(text)
+    for char in asciiCharList:
+        check_ascii_char = char.isascii()
+        if check_ascii_char == False:
+            char = ""
+        asciiErrorFree.append(char)
+    
+    for x in asciiErrorFree:
+        fixedText+=x
+
+    return fixedText
+
+def concat(stringList):
+    body = ""
+    for string in stringList:
+        body += string
+    return body
 
 def imgEmbed(img):
     filename = img.split("/")[6] + ".jpg"
@@ -97,19 +105,27 @@ def imgEmbed(img):
 
     return filename 
 
-def send_mail(msg):
+def send_mail(msg, imageList):
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-        smtp.login(EMAIL_ADD, EMAIL_PASS)
-        smtp.send_message(msg)
-        print("mail has been sent")
-        smtp.quit()
+    smtp = smtplib.SMTP("smtp.gmail.com", 587)
+    smtp.ehlo()
+    smtp.starttls()
+    smtp.login(EMAIL_ADD, EMAIL_PASS)
+    subject = "Some Gcards poo boy"
+    message = f"Subject:{subject}\n\n{msg}".format(subject, msg)
+    smtp.sendmail(EMAIL_ADD, "joe.sealy@hotmail.co.uk", message)
+    print("mail has been sent")
+    smtp.quit()
+
+    for image in imageList:
+        os.remove(image)
 
 
 #while(True):
 #    check_price()
 #   time.sleep(60)
 
-data = data_get(URL)
-msg = data_find(data)
-send_mail(msg)
+if __name__ == "__main__":
+    data = data_get(URL)
+    msg, imageList = data_find(data)
+    send_mail(msg, imageList)
