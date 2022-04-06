@@ -8,9 +8,9 @@ import os
 import personal
 import shutil 
 from bs4 import BeautifulSoup
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.image import MIMEImage
+from email.message import EmailMessage
+from email.utils import make_msgid
+import mimetypes
 
 EMAIL_ADD = personal.EMAIL_ADDRESS
 EMAIL_PASS = personal.EMAIL_PASSWORD
@@ -28,8 +28,14 @@ def data_get(URL):
 def data_find(soup):
     imageList = []
     productFeatureList = []
+    msg = EmailMessage()
 
-    results = soup.find_all("li", class_ = "s-item s-item__pl-on-bottom s-item--watch-at-corner", limit = 2)
+    msg['Subject'] = 'Some GCards Poo Boy'
+    msg['From'] = EMAIL_ADD
+    msg['To'] = 'joe.sealy@hotmail.co.uk'
+
+    
+    results = soup.find_all("li", class_ = "s-item s-item__pl-on-bottom s-item--watch-at-corner", limit = 1)
     for products in results:
 
         title = products.find("h3", class_ ="s-item__title").text
@@ -56,18 +62,40 @@ def data_find(soup):
             bids = "NaN"
             timeLeft = "NaN"
 
-        productFeatureList.append(f"Title: {title}\nCondition: {condition}\n"
+        productFeatureList = (f"Title: {title}\nCondition: {condition}\n"
         f"Selling Price: {sellingPrice}\nTime Left: {timeLeft}\n"
-        f"Bids: {bids}\nBuy it Now?: {buyItNow}\nLink: {link}\n"
-        f"________________________________________________________________________________________________________\n\n")
+        f"Bids: {bids}\nBuy it Now?: {buyItNow}\nLink: {link}\n")
 
+        msg.set_content('')
 
-    msg = productFeatureList
-    msg = concat(msg)
-    subject = "Some Gcards poo boy"
-    message = f"Subject:{subject}\n\n{msg}".format(subject, msg)
+        image_cid = make_msgid()
+        msg.add_alternative("""\
+        <html>
+            <body>
+             <p>{productFeatureList}<br>
+             </p>
+             <img src="cid:{image_cid}">
+            </body>
+        </html>
+        """.format(image_cid=image_cid[1:-1], productFeatureList = productFeatureList ), subtype='html')
 
-    return message, imageList
+        with open(image, 'rb') as img:
+            maintype, subtype = mimetypes.guess_type(img.name)[0].split('/')
+            msg.get_payload()[1].add_related(img.read(), 
+                                            maintype=maintype, 
+                                            subtype=subtype, 
+                                            cid=image_cid)
+
+        
+        
+        
+
+    return msg
+    #msg = productFeatureList
+    #msg = concat(msg)
+    #subject = "Some Gcards poo boy"
+    #message = f"Subject:{subject}\n\n{msg}".format(subject, msg)
+
 
 def asciiErrorCheck(text):
     asciiErrorFree = []
@@ -105,20 +133,18 @@ def imgEmbed(img):
 
     return filename 
 
-def send_mail(msg, imageList):
+def send_mail(msg):
 
     smtp = smtplib.SMTP("smtp.gmail.com", 587)
     smtp.ehlo()
     smtp.starttls()
     smtp.login(EMAIL_ADD, EMAIL_PASS)
-    subject = "Some Gcards poo boy"
-    message = f"Subject:{subject}\n\n{msg}".format(subject, msg)
-    smtp.sendmail(EMAIL_ADD, "joe.sealy@hotmail.co.uk", message)
+    smtp.sendmail(EMAIL_ADD, "joe.sealy@hotmail.co.uk", msg.as_string)
     print("mail has been sent")
     smtp.quit()
 
-    for image in imageList:
-        os.remove(image)
+    #for image in imageList:
+   #     os.remove(image)
 
 
 #while(True):
@@ -127,5 +153,5 @@ def send_mail(msg, imageList):
 
 if __name__ == "__main__":
     data = data_get(URL)
-    msg, imageList = data_find(data)
-    send_mail(msg, imageList)
+    msg = data_find(data)
+    send_mail(msg)
