@@ -28,14 +28,13 @@ def data_get(URL):
 def data_find(soup):
     imageList = []
     productFeatureList = []
-    msg = EmailMessage()
-
-    msg['Subject'] = 'Some GCards Poo Boy'
-    msg['From'] = EMAIL_ADD
-    msg['To'] = 'joe.sealy@hotmail.co.uk'
-
     
-    results = soup.find_all("li", class_ = "s-item s-item__pl-on-bottom s-item--watch-at-corner", limit = 1)
+    msg = EmailMessage()
+    msg['Subject'] = "Some Cards poo boy"
+    msg.set_content('')
+    
+    
+    results = soup.find_all("li", class_ = "s-item s-item__pl-on-bottom s-item--watch-at-corner", limit = 2)
     for products in results:
 
         title = products.find("h3", class_ ="s-item__title").text
@@ -46,56 +45,67 @@ def data_find(soup):
         buyItNow = products.find("span", class_ = "s-item__purchase-options-with-icon")
         link = products.find("a", class_ = "s-item__link")["href"]
         imgLink = products.find("img", class_ = "s-item__image-img")["src"]
-        image = imgEmbed(imgLink)
-        #imageList.append(image)
+        
 
+        image = imgEmbed(imgLink)
         title = asciiErrorCheck(title)
         condition = asciiErrorCheck(condition)
         sellingPrice = asciiErrorCheck(sellingPrice)
+        timeLeft,bids,buyItNow = NaNObjects(timeLeft,bids,buyItNow)
+        linkShort = link.split("?")[0]
 
-        if buyItNow == None:
-            buyItNow = "NaN"
-            bids = bids.text
-            timeLeft = timeLeft.text
-        else:
-            buyItNow = "Yes"
-            bids = "NaN"
-            timeLeft = "NaN"
-
-        productFeatureList = (f"Title: {title}\nCondition: {condition}\n"
+        productFeatureList.append(f"Title: {title}\nCondition: {condition}\n"
         f"Selling Price: {sellingPrice}\nTime Left: {timeLeft}\n"
         f"Bids: {bids}\nBuy it Now?: {buyItNow}\nLink: {link}\n")
 
-        msg.set_content('')
+        imageList.append(image)
 
         image_cid = make_msgid()
         msg.add_alternative("""\
         <html>
             <body>
-             <p>{productFeatureList}<br>
-             </p>
-             <img src="cid:{image_cid}">
+                 <img src="cid:{image_cid}"align="right">
+                 <span style="font-size: 20px;">Title:</span><span style="font-size: 15px;"> {title}</span><br>
+                 <span style="font-size: 20px;">Condition:</span><span style="font-size: 15px;"> {condition}</span><br>
+                 <span style="font-size: 20px;">Selling Price:</span><span style="font-size: 15px;">  {sellingPrice}</span><br>
+                 <span style="font-size: 20px;">Time Left:</span><span style="font-size: 15px;">  {timeLeft}</span><br>
+                 <span style="font-size: 20px;">Bids:</span><span style="font-size: 15px;"> {bids}</span><br>
+                 <span style="font-size: 20px;">Buy it Now?:</span><span style="font-size: 15px;">  {buyItNow}</span><br>
+                 <span style="font-size: 20px;">Link:</span><span style="font-size: 15px;"> {linkShort}</span><br>
             </body>
-        </html>
-        """.format(image_cid=image_cid[1:-1], productFeatureList = productFeatureList ), subtype='html')
+        </html> 
+        """.format(image_cid=image_cid[1:-1], title = title, condition = condition, sellingPrice = sellingPrice, timeLeft = timeLeft, bids = bids, buyItNow = buyItNow, linkShort = linkShort ), subtype='html')
 
         with open(image, 'rb') as img:
             maintype, subtype = mimetypes.guess_type(img.name)[0].split('/')
-            msg.get_payload()[1].add_related(img.read(), 
-                                            maintype=maintype, 
-                                            subtype=subtype, 
-                                            cid=image_cid)
+            msg.get_payload()[1].add_related(img.read(),maintype=maintype,subtype=subtype,cid=image_cid)
 
-        
-        
-        
-
-    return msg
+    
+    msg = msg.as_string()
+    return msg, imageList
     #msg = productFeatureList
     #msg = concat(msg)
     #subject = "Some Gcards poo boy"
     #message = f"Subject:{subject}\n\n{msg}".format(subject, msg)
 
+def NaNObjects(timeLeft,bids,buyItNow ):
+    if timeLeft == None:
+        timeLeft = "NaN"
+    else:
+        timeLeft = timeLeft.text
+
+    if bids == None:
+        bids = "NaN"
+    else:
+        bids = bids.text
+
+    if buyItNow == None:
+        buyItNow = "NaN"
+    else:
+        buyItNow = "Yes"
+ 
+
+    return timeLeft,bids,buyItNow 
 
 def asciiErrorCheck(text):
     asciiErrorFree = []
@@ -133,18 +143,18 @@ def imgEmbed(img):
 
     return filename 
 
-def send_mail(msg):
+def send_mail(msg, imageList):
 
     smtp = smtplib.SMTP("smtp.gmail.com", 587)
     smtp.ehlo()
     smtp.starttls()
     smtp.login(EMAIL_ADD, EMAIL_PASS)
-    smtp.sendmail(EMAIL_ADD, "joe.sealy@hotmail.co.uk", msg.as_string)
+    smtp.sendmail(EMAIL_ADD, "joe.sealy@hotmail.co.uk", msg)
     print("mail has been sent")
     smtp.quit()
 
-    #for image in imageList:
-   #     os.remove(image)
+    for image in imageList:
+        os.remove(image)
 
 
 #while(True):
@@ -153,5 +163,5 @@ def send_mail(msg):
 
 if __name__ == "__main__":
     data = data_get(URL)
-    msg = data_find(data)
-    send_mail(msg)
+    msg, imageList = data_find(data)
+    send_mail(msg, imageList)
