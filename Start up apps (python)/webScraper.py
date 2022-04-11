@@ -1,3 +1,4 @@
+from cgitb import html
 import imghdr
 import requests
 import pandas as pd
@@ -6,11 +7,12 @@ import time
 import base64 
 import os
 import personal
-import shutil 
+import shutil
+import mimetypes
 from bs4 import BeautifulSoup
 from email.message import EmailMessage
 from email.utils import make_msgid
-import mimetypes
+from jinja2 import Environment, BaseLoader
 
 EMAIL_ADD = personal.EMAIL_ADDRESS
 EMAIL_PASS = personal.EMAIL_PASSWORD
@@ -23,15 +25,12 @@ def data_get(URL):
     soup = BeautifulSoup(request.text, "html.parser")
     return soup
 
-
-
 def data_find(soup):
+    productElement = []
     imageList = []
-    productFeatureList = []
-    
     msg = EmailMessage()
     msg['Subject'] = "Some Cards poo boy"
-    msg.set_content('')
+    msg.set_content("")
     
     
     results = soup.find_all("li", class_ = "s-item s-item__pl-on-bottom s-item--watch-at-corner", limit = 2)
@@ -54,39 +53,36 @@ def data_find(soup):
         timeLeft,bids,buyItNow = NaNObjects(timeLeft,bids,buyItNow)
         linkShort = link.split("?")[0]
 
-        productFeatureList.append(f"Title: {title}\nCondition: {condition}\n"
-        f"Selling Price: {sellingPrice}\nTime Left: {timeLeft}\n"
-        f"Bids: {bids}\nBuy it Now?: {buyItNow}\nLink: {link}\n")
-
+        productElement.extend([image, title, condition, sellingPrice, timeLeft, bids, buyItNow, linkShort])
         imageList.append(image)
 
-        image_cid = make_msgid()
-        msg.add_alternative("""\
-        <html>
-            <body>
-                 <img src="cid:{image_cid}"align="right">
-                 <span style="font-size: 20px;">Title:</span><span style="font-size: 15px;"> {title}</span><br>
-                 <span style="font-size: 20px;">Condition:</span><span style="font-size: 15px;"> {condition}</span><br>
-                 <span style="font-size: 20px;">Selling Price:</span><span style="font-size: 15px;">  {sellingPrice}</span><br>
-                 <span style="font-size: 20px;">Time Left:</span><span style="font-size: 15px;">  {timeLeft}</span><br>
-                 <span style="font-size: 20px;">Bids:</span><span style="font-size: 15px;"> {bids}</span><br>
-                 <span style="font-size: 20px;">Buy it Now?:</span><span style="font-size: 15px;">  {buyItNow}</span><br>
-                 <span style="font-size: 20px;">Link:</span><span style="font-size: 15px;"> {linkShort}</span><br>
-            </body>
-        </html> 
-        """.format(image_cid=image_cid[1:-1], title = title, condition = condition, sellingPrice = sellingPrice, timeLeft = timeLeft, bids = bids, buyItNow = buyItNow, linkShort = linkShort ), subtype='html')
 
-        with open(image, 'rb') as img:
-            maintype, subtype = mimetypes.guess_type(img.name)[0].split('/')
-            msg.get_payload()[1].add_related(img.read(),maintype=maintype,subtype=subtype,cid=image_cid)
+    forEnd = len(productElement)
+    html_template = """\
+    <html>
+        <body>
+        {% for element in range(0, forEnd, 8) %}
+            <img src="cid:{{productElement[element]}}"align="right">
+            <span style="font-size: 20px;">Title:</span><span style="font-size: 15px;"> {{productElement[element + 1]}}</span><br>
+            <span style="font-size: 20px;">Condition:</span><span style="font-size: 15px;"> {{productElement[element + 2]}}</span><br>
+            <span style="font-size: 20px;">Selling Price:</span><span style="font-size: 15px;">  {{productElement[element+ 3]}}</span><br>
+            <span style="font-size: 20px;">Time Left:</span><span style="font-size: 15px;">  {{productElement[element + 4]}}</span><br>
+            <span style="font-size: 20px;">Bids:</span><span style="font-size: 15px;"> {{productElement[element + 5]}}</span><br>
+            <span style="font-size: 20px;">Buy it Now?:</span><span style="font-size: 15px;">  {{productElement[element + 6]}}</span><br>
+            <span style="font-size: 20px;">Link:</span><span style="font-size: 15px;"> {{productElement[element + 7]}}</span><br>
+        {% endfor %}
+        </body>
+    </html>  
+    """
 
-    
+    template = Environment(loader=BaseLoader).from_string(html_template)
+    template_vars = {"forEnd": forEnd, "productElement": productElement, }
+    html_out = template.render(template_vars)
+
+    image_cid = make_msgid()
+    msg.add_alternative(html_out.format(subtype = html))
     msg = msg.as_string()
     return msg, imageList
-    #msg = productFeatureList
-    #msg = concat(msg)
-    #subject = "Some Gcards poo boy"
-    #message = f"Subject:{subject}\n\n{msg}".format(subject, msg)
 
 def NaNObjects(timeLeft,bids,buyItNow ):
     if timeLeft == None:
