@@ -14,6 +14,8 @@ from email.message import EmailMessage
 from email.utils import make_msgid
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
+from email.mime.image import MIMEImage
 from jinja2 import Environment, BaseLoader
 
 EMAIL_ADD = personal.EMAIL_ADDRESS
@@ -28,19 +30,15 @@ def data_get(URL):
     return soup
 
 def data_find(soup):
-    productElement = []
     imageList = []
-    image_cid = []
+    html_full = ""
     msg = MIMEMultipart('alternative')
     msg['Subject'] = "Test HTML Email"
     msg['From'] = EMAIL_ADD
     msg['To'] = "joe.sealy@hotmail.co.uk"
+    
+    image_cid = make_msgid()
 
-    #msg = EmailMessage()
-    #msg['Subject'] = "Some Cards poo boy"
-    #msg.set_content("")
-    
-    
     results = soup.find_all("li", class_ = "s-item s-item__pl-on-bottom s-item--watch-at-corner", limit = 2)
     for products in results:
 
@@ -60,43 +58,40 @@ def data_find(soup):
         sellingPrice = asciiErrorCheck(sellingPrice)
         timeLeft,bids,buyItNow = NaNObjects(timeLeft,bids,buyItNow)
         linkShort = link.split("?")[0]
-
-        productElement.extend([image, title, condition, sellingPrice, timeLeft, bids, buyItNow, linkShort])
         imageList.append(image)
+        #productElement.extend([title, condition, sellingPrice, timeLeft, bids, buyItNow, linkShort])
 
-    forEnd = len(productElement)
-    for i in range(0, forEnd, 8):
-        image_cid[i] = make_msgid()
+        html = """\
+            <html>
+                <body>
+                    <p>
+                        <img src="cid:{{image_cid}}"align="right">
+                        <span style="font-size: 20px;">Title:</span><span style="font-size: 15px;"> {{title}}</span><br>
+                        <span style="font-size: 20px;">Condition:</span><span style="font-size: 15px;"> {{condition}}</span><br>
+                        <span style="font-size: 20px;">Selling Price:</span><span style="font-size: 15px;">  {{sellingPrice}}</span><br>
+                        <span style="font-size: 20px;">Time Left:</span><span style="font-size: 15px;">  {{timeLeft}}</span><br>
+                        <span style="font-size: 20px;">Bids:</span><span style="font-size: 15px;"> {{bids}}</span><br>
+                        <span style="font-size: 20px;">Buy it Now?:</span><span style="font-size: 15px;">  {{buyItNow}}</span><br>
+                        <span style="font-size: 20px;">Link:</span><span style="font-size: 15px;"> {{linkShort}}</span><br>
+                    </p>
+                </body>
+            </html>"""
+        
+        template = Environment(loader=BaseLoader).from_string(html)
+        template_vars = {"title": title, "condition": condition, "sellingPrice": sellingPrice, "timeLeft": timeLeft, "bids": bids, "buyItNow": buyItNow, "linkShort": linkShort, "image_cid": image_cid[1:-1], }
+        html_out = template.render(template_vars)
 
-    html_template = """\
-    <html>
-        <body>
-        {% for element in range(0, forEnd, 8) %}
-        <p>
-            <img src="cid:{{image_cid[element]}}"align="right">
-            <span style="font-size: 20px;">Title:</span><span style="font-size: 15px;"> {{productElement[element + 1]}}</span><br>
-            <span style="font-size: 20px;">Condition:</span><span style="font-size: 15px;"> {{productElement[element + 2]}}</span><br>
-            <span style="font-size: 20px;">Selling Price:</span><span style="font-size: 15px;">  {{productElement[element+ 3]}}</span><br>
-            <span style="font-size: 20px;">Time Left:</span><span style="font-size: 15px;">  {{productElement[element + 4]}}</span><br>
-            <span style="font-size: 20px;">Bids:</span><span style="font-size: 15px;"> {{productElement[element + 5]}}</span><br>
-            <span style="font-size: 20px;">Buy it Now?:</span><span style="font-size: 15px;">  {{productElement[element + 6]}}</span><br>
-            <span style="font-size: 20px;">Link:</span><span style="font-size: 15px;"> {{productElement[element + 7]}}</span><br>
-        </p>
-        {% endfor %}
-        </body>
-    </html>  
-    """
-    for i in range(0, forEnd, 8):
-        with open(productElement[i], 'rb') as img:
-            maintype, subtype = mimetypes.guess_type(img.name)[0].split('/')
-            msg.get_payload()[1].add_related(img.read(),maintype=maintype,subtype=subtype,cid=image_cid[i])
+        with open(image, 'rb') as img:
+            msg_img = MIMEImage(img.read())
+            img.close()
+            msg_img.add_header('Content-ID', 'image_cid')
+            msg.attach(msg_img)
 
-    template = Environment(loader=BaseLoader).from_string(html_template)
-    template_vars = {"forEnd": forEnd, "productElement": productElement, "image_cid": image_cid[1:-1], }
-    html_out = template.render(template_vars)
+        html_full += html_out
+        print(html_full)
 
-    part2 = MIMEText(html_out, 'html')
-    msg.attach(part2)
+    
+    
     msg = msg.as_string()
     return msg, imageList
 
