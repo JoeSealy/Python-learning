@@ -1,4 +1,4 @@
-from cgitb import html
+from cgitb import html, reset
 import imghdr
 import requests
 import pandas as pd
@@ -31,15 +31,20 @@ def data_get(URL):
 
 def data_find(soup):
     imageList = []
-    html_full = ""
-    msg = MIMEMultipart('alternative')
-    msg['Subject'] = "Test HTML Email"
-    msg['From'] = EMAIL_ADD
-    msg['To'] = "joe.sealy@hotmail.co.uk"
-    
-    image_cid = make_msgid()
+    productElement = []
+    html_list = []
+    msgRoot = MIMEMultipart('related')
+    msgRoot['Subject'] = 'test message'
+    msgRoot['From'] = EMAIL_ADD
+    msgRoot['To'] = "joe.sealy@hotmail.co.uk"
+    msgRoot.preamble = 'Multi-part message in MIME format.'
+    msgAlternative = MIMEMultipart('alternative')
+    msgRoot.attach(msgAlternative)
+    html_List =""
+    i = 0
 
-    results = soup.find_all("li", class_ = "s-item s-item__pl-on-bottom s-item--watch-at-corner", limit = 2)
+    results = soup.find_all("li", class_ = "s-item s-item__pl-on-bottom s-item--watch-at-corner", limit = 5)
+
     for products in results:
 
         title = products.find("h3", class_ ="s-item__title").text
@@ -50,7 +55,6 @@ def data_find(soup):
         buyItNow = products.find("span", class_ = "s-item__purchase-options-with-icon")
         link = products.find("a", class_ = "s-item__link")["href"]
         imgLink = products.find("img", class_ = "s-item__image-img")["src"]
-        
 
         image = imgEmbed(imgLink)
         title = asciiErrorCheck(title)
@@ -59,41 +63,44 @@ def data_find(soup):
         timeLeft,bids,buyItNow = NaNObjects(timeLeft,bids,buyItNow)
         linkShort = link.split("?")[0]
         imageList.append(image)
-        #productElement.extend([title, condition, sellingPrice, timeLeft, bids, buyItNow, linkShort])
 
-        html = """\
-            <html>
-                <body>
-                    <p>
-                        <img src="cid:{{image_cid}}"align="right">
-                        <span style="font-size: 20px;">Title:</span><span style="font-size: 15px;"> {{title}}</span><br>
-                        <span style="font-size: 20px;">Condition:</span><span style="font-size: 15px;"> {{condition}}</span><br>
-                        <span style="font-size: 20px;">Selling Price:</span><span style="font-size: 15px;">  {{sellingPrice}}</span><br>
-                        <span style="font-size: 20px;">Time Left:</span><span style="font-size: 15px;">  {{timeLeft}}</span><br>
-                        <span style="font-size: 20px;">Bids:</span><span style="font-size: 15px;"> {{bids}}</span><br>
-                        <span style="font-size: 20px;">Buy it Now?:</span><span style="font-size: 15px;">  {{buyItNow}}</span><br>
-                        <span style="font-size: 20px;">Link:</span><span style="font-size: 15px;"> {{linkShort}}</span><br>
-                    </p>
-                </body>
-            </html>"""
-        
-        template = Environment(loader=BaseLoader).from_string(html)
-        template_vars = {"title": title, "condition": condition, "sellingPrice": sellingPrice, "timeLeft": timeLeft, "bids": bids, "buyItNow": buyItNow, "linkShort": linkShort, "image_cid": image_cid[1:-1], }
-        html_out = template.render(template_vars)
+        #image_cid = make_msgid()
+        #productElement.extend([image, title, condition, sellingPrice, timeLeft, bids, buyItNow, linkShort])
 
-        with open(image, 'rb') as img:
+        html="""
+        <p>
+            <img src="cid:image{i}"align="right">
+            <span style="font-size: 20px;">Title:</span><span style="font-size: 15px;"> {title}</span><br>
+            <span style="font-size: 20px;">Condition:</span><span style="font-size: 15px;"> {condition}</span><br>
+            <span style="font-size: 20px;">Selling Price:</span><span style="font-size: 15px;">  {sellingPrice}</span><br>
+            <span style="font-size: 20px;">Time Left:</span><span style="font-size: 15px;">  {timeLeft}</span><br>
+            <span style="font-size: 20px;">Bids:</span><span style="font-size: 15px;"> {bids}</span><br>
+            <span style="font-size: 20px;">Buy it Now?:</span><span style="font-size: 15px;">  {buyItNow}</span><br>
+            <span style="font-size: 20px;">Link:</span><span style="font-size: 15px;"> {linkShort}</span><br>
+        </p>""".format(i = i, title = title, condition = condition, sellingPrice = sellingPrice, timeLeft = timeLeft, bids = bids, buyItNow = buyItNow, linkShort = linkShort)
+
+        with open (imageList[i], 'rb') as img:
             msg_img = MIMEImage(img.read())
+            msg_img.add_header('Content-ID', '<image'+str(i)+'>')
+            msgRoot.attach(msg_img)
             img.close()
-            msg_img.add_header('Content-ID', 'image_cid')
-            msg.attach(msg_img)
 
-        html_full += html_out
-        print(html_full)
+        i += 1
+        html_List += html
 
-    
-    
-    msg = msg.as_string()
-    return msg, imageList
+
+    html_Full = """ 
+        <html>
+            <body>
+                {html_List}
+            </body>
+        </html>
+    """.format(html_List = html_List)
+
+    msgAlternative.attach(MIMEText(html_Full , "html"))
+    msgRoot = msgRoot.as_string()
+    #print(msg)
+    return msgRoot, imageList
 
 def NaNObjects(timeLeft,bids,buyItNow ):
     if timeLeft == None:
@@ -155,6 +162,7 @@ def send_mail(msg, imageList):
     smtp = smtplib.SMTP("smtp.gmail.com", 587)
     smtp.ehlo()
     smtp.starttls()
+    smtp.ehlo()
     smtp.login(EMAIL_ADD, EMAIL_PASS)
     smtp.sendmail(EMAIL_ADD, "joe.sealy@hotmail.co.uk", msg)
     print("mail has been sent")
