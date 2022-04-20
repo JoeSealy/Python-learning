@@ -1,28 +1,22 @@
-from cgitb import html, reset
-import imghdr
 import requests
 import pandas as pd
 import smtplib
 import time
-import base64 
 import os
 import personal
 import shutil
-import mimetypes
 from bs4 import BeautifulSoup
-from email.message import EmailMessage
-from email.utils import make_msgid
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.mime.application import MIMEApplication
 from email.mime.image import MIMEImage
 from jinja2 import Environment, BaseLoader
+
 
 EMAIL_ADD = personal.EMAIL_ADDRESS
 EMAIL_PASS = personal.EMAIL_PASSWORD
 HEADER = personal.HEADER
 
-URL = "https://www.ebay.co.uk/sch/i.html?_from=R40&_trksid=p2334524.m570.l1311&_nkw=1070ti+graphics+card&_sacat=0&LH_TitleDesc=0&rt=nc&_odkw=GRAPHICS+CARDS&_osacat=0&LH_All=1"
+URL = "https://www.ebay.co.uk/sch/i.html?_from=R40&_trksid=p2334524.m570.l1313&_nkw=ktm+350+sxf&_sacat=0&LH_TitleDesc=0&_odkw=ktm+350&_osacat=0"
 
 def data_get(URL):
     request = requests.get(URL, headers = HEADER)
@@ -31,12 +25,10 @@ def data_get(URL):
 
 def data_find(soup):
     imageList = []
-    productElement = []
-    html_list = []
     msgRoot = MIMEMultipart('related')
-    msgRoot['Subject'] = 'test message'
+    msgRoot['Subject'] = 'poo boy heres some cards'
     msgRoot['From'] = EMAIL_ADD
-    msgRoot['To'] = "joe.sealy@hotmail.co.uk"
+    msgRoot['To'] = "Joe.sealy@hotmail.co.uk"
     msgRoot.preamble = 'Multi-part message in MIME format.'
     msgAlternative = MIMEMultipart('alternative')
     msgRoot.attach(msgAlternative)
@@ -47,12 +39,14 @@ def data_find(soup):
 
     for products in results:
 
-        title = products.find("h3", class_ ="s-item__title").text
-        condition = products.find("span", class_ = "SECONDARY_INFO").text
-        sellingPrice = products.find("span", class_ = "s-item__price").text
-        timeLeft = products.find("span", class_ = "s-item__time-left")
-        bids = products.find("span", class_ = "s-item__bids s-item__bidCount")
-        buyItNow = products.find("span", class_ = "s-item__purchase-options-with-icon")
+        buyItNow = NaNObjects(products.find("span", class_ = "s-item__purchase-options-with-icon"))
+        sellingPrice = NaNObjects(products.find("span", class_ = "s-item__price"))
+
+
+        title = NaNObjects(products.find("h3", class_ ="s-item__title"))
+        condition = NaNObjects(products.find("span", class_ = "SECONDARY_INFO"))
+        timeLeft = NaNObjects(products.find("span", class_ = "s-item__time-left"))
+        bids = NaNObjects(products.find("span", class_ = "s-item__bids s-item__bidCount"))
         link = products.find("a", class_ = "s-item__link")["href"]
         imgLink = products.find("img", class_ = "s-item__image-img")["src"]
 
@@ -60,7 +54,6 @@ def data_find(soup):
         title = asciiErrorCheck(title)
         condition = asciiErrorCheck(condition)
         sellingPrice = asciiErrorCheck(sellingPrice)
-        timeLeft,bids,buyItNow = NaNObjects(timeLeft,bids,buyItNow)
         linkShort = link.split("?")[0]
         imageList.append(image)
 
@@ -102,24 +95,17 @@ def data_find(soup):
     #print(msg)
     return msgRoot, imageList
 
-def NaNObjects(timeLeft,bids,buyItNow ):
-    if timeLeft == None:
-        timeLeft = "NaN"
-    else:
-        timeLeft = timeLeft.text
+def strToInt(a):
+    a = int(a)
+    return a
 
-    if bids == None:
-        bids = "NaN"
+def NaNObjects(x):
+    if x == None:
+        x = "NaN"
     else:
-        bids = bids.text
+        x = x.text
 
-    if buyItNow == None:
-        buyItNow = "NaN"
-    else:
-        buyItNow = "Yes"
- 
-
-    return timeLeft,bids,buyItNow 
+    return x 
 
 def asciiErrorCheck(text):
     asciiErrorFree = []
@@ -164,7 +150,7 @@ def send_mail(msg, imageList):
     smtp.starttls()
     smtp.ehlo()
     smtp.login(EMAIL_ADD, EMAIL_PASS)
-    smtp.sendmail(EMAIL_ADD, "joe.sealy@hotmail.co.uk", msg)
+    smtp.sendmail(EMAIL_ADD, "Joe.Sealy@hotmail.co.uk", msg)
     print("mail has been sent")
     smtp.quit()
 
