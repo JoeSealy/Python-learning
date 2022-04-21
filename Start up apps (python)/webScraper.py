@@ -3,6 +3,8 @@ import pandas as pd
 import smtplib
 import time
 import os
+
+from sqlalchemy import true
 import personal
 import shutil
 from bs4 import BeautifulSoup
@@ -16,7 +18,7 @@ EMAIL_ADD = personal.EMAIL_ADDRESS
 EMAIL_PASS = personal.EMAIL_PASSWORD
 HEADER = personal.HEADER
 
-URL = "https://www.ebay.co.uk/sch/i.html?_from=R40&_trksid=p2334524.m570.l1313&_nkw=ktm+350+sxf&_sacat=0&LH_TitleDesc=0&_odkw=ktm+350&_osacat=0"
+URL = "https://www.ebay.co.uk/sch/i.html?_from=R40&_trksid=p2334524.m570.l1313&_nkw=Palit+Jetstream+GeForce+GTX+1060+6GB&_sacat=0&LH_TitleDesc=0&_odkw=Palit+GeForce+GTX+1060+6GB&_osacat=0"
 
 def data_get(URL):
     request = requests.get(URL, headers = HEADER)
@@ -38,48 +40,62 @@ def data_find(soup):
     results = soup.find_all("li", class_ = "s-item s-item__pl-on-bottom s-item--watch-at-corner", limit = 5)
 
     for products in results:
+        lists = []
+        priceList = products.find_all("div", class_ = "s-item__detail s-item__detail--primary")
 
-        buyItNow = NaNObjects(products.find("span", class_ = "s-item__purchase-options-with-icon"))
-        sellingPrice = NaNObjects(products.find("span", class_ = "s-item__price"))
+        for prices in priceList:
+            lists.append(prices.find("span", class_ ="s-item__price"))
+            
+        sellingPrice = NaNObjects(lists[0])
+        buyItNowPrice = NaNObjects(lists[2])
 
-
-        title = NaNObjects(products.find("h3", class_ ="s-item__title"))
-        condition = NaNObjects(products.find("span", class_ = "SECONDARY_INFO"))
-        timeLeft = NaNObjects(products.find("span", class_ = "s-item__time-left"))
-        bids = NaNObjects(products.find("span", class_ = "s-item__bids s-item__bidCount"))
-        link = products.find("a", class_ = "s-item__link")["href"]
-        imgLink = products.find("img", class_ = "s-item__image-img")["src"]
-
-        image = imgEmbed(imgLink)
-        title = asciiErrorCheck(title)
-        condition = asciiErrorCheck(condition)
         sellingPrice = asciiErrorCheck(sellingPrice)
-        linkShort = link.split("?")[0]
-        imageList.append(image)
+        buyItNowPrice = asciiErrorCheck(buyItNowPrice)
+        print(sellingPrice, buyItNowPrice)
+        a = priceCheck(buyItNowPrice)
+        b = priceCheck(sellingPrice)
 
-        #image_cid = make_msgid()
-        #productElement.extend([image, title, condition, sellingPrice, timeLeft, bids, buyItNow, linkShort])
+        print (a, b)
 
-        html="""
-        <p>
-            <img src="cid:image{i}"align="right">
-            <span style="font-size: 20px;">Title:</span><span style="font-size: 15px;"> {title}</span><br>
-            <span style="font-size: 20px;">Condition:</span><span style="font-size: 15px;"> {condition}</span><br>
-            <span style="font-size: 20px;">Selling Price:</span><span style="font-size: 15px;">  {sellingPrice}</span><br>
-            <span style="font-size: 20px;">Time Left:</span><span style="font-size: 15px;">  {timeLeft}</span><br>
-            <span style="font-size: 20px;">Bids:</span><span style="font-size: 15px;"> {bids}</span><br>
-            <span style="font-size: 20px;">Buy it Now?:</span><span style="font-size: 15px;">  {buyItNow}</span><br>
-            <span style="font-size: 20px;">Link:</span><span style="font-size: 15px;"> {linkShort}</span><br>
-        </p>""".format(i = i, title = title, condition = condition, sellingPrice = sellingPrice, timeLeft = timeLeft, bids = bids, buyItNow = buyItNow, linkShort = linkShort)
+        if a or b == True:  
+            title = NaNObjects(products.find("h3", class_ ="s-item__title"))
+            condition = NaNObjects(products.find("span", class_ = "SECONDARY_INFO"))
+            timeLeft = NaNObjects(products.find("span", class_ = "s-item__time-left"))
+            bids = NaNObjects(products.find("span", class_ = "s-item__bids s-item__bidCount"))
+            buyItNowNoNum = NaNObjects(products.find("span", class_ = "s-item__purchase-options-with-icon"))
+            link = products.find("a", class_ = "s-item__link")["href"]
+            imgLink = products.find("img", class_ = "s-item__image-img")["src"]
 
-        with open (imageList[i], 'rb') as img:
-            msg_img = MIMEImage(img.read())
-            msg_img.add_header('Content-ID', '<image'+str(i)+'>')
-            msgRoot.attach(msg_img)
-            img.close()
+            image = imgEmbed(imgLink)
+            title = asciiErrorCheck(title)
+            condition = asciiErrorCheck(condition)
+            linkShort = link.split("?")[0]
+            imageList.append(image)
 
-        i += 1
-        html_List += html
+            if(buyItNowPrice == "NaN"):
+                if(buyItNowNoNum != "NaN"):
+                    buyItNowPrice = "Yes"
+
+            html="""
+            <p>
+                <img src="cid:image{i}"align="right">
+                <span style="font-size: 20px;">Title:</span><span style="font-size: 15px;"> {title}</span><br>
+                <span style="font-size: 20px;">Condition:</span><span style="font-size: 15px;"> {condition}</span><br>
+                <span style="font-size: 20px;">Selling Price:</span><span style="font-size: 15px;">  {sellingPrice}</span><br>
+                <span style="font-size: 20px;">Time Left:</span><span style="font-size: 15px;">  {timeLeft}</span><br>
+                <span style="font-size: 20px;">Bids:</span><span style="font-size: 15px;"> {bids}</span><br>
+                <span style="font-size: 20px;">Buy it Now?:</span><span style="font-size: 15px;"> {buyItNowPrice}</span><br>
+                <span style="font-size: 20px;">Link:</span><span style="font-size: 15px;"> {linkShort}</span><br>
+            </p>""".format(i = i, title = title, condition = condition, sellingPrice = sellingPrice, timeLeft = timeLeft, bids = bids, buyItNowPrice = buyItNowPrice, linkShort = linkShort)
+
+            with open (imageList[i], 'rb') as img:
+                msg_img = MIMEImage(img.read())
+                msg_img.add_header('Content-ID', '<image'+str(i)+'>')
+                msgRoot.attach(msg_img)
+                img.close()
+
+            i += 1
+            html_List += html
 
 
     html_Full = """ 
@@ -95,9 +111,16 @@ def data_find(soup):
     #print(msg)
     return msgRoot, imageList
 
-def strToInt(a):
-    a = int(a)
-    return a
+def priceCheck(a):
+    a = float(a)
+    print(a)
+    if a < 200:
+        return True
+    else:
+        return False
+  
+
+
 
 def NaNObjects(x):
     if x == None:
@@ -160,7 +183,7 @@ def send_mail(msg, imageList):
 
 #while(True):
 #    check_price()
-#   time.sleep(60)
+#    time.sleep(60)
 
 if __name__ == "__main__":
     data = data_get(URL)
