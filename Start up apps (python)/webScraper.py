@@ -1,9 +1,9 @@
+from matplotlib import image
 import requests
 import pandas as pd
 import smtplib
 import time
 import os
-
 from sqlalchemy import true
 import personal
 import shutil
@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
-from jinja2 import Environment, BaseLoader
+
 
 
 EMAIL_ADD = personal.EMAIL_ADDRESS
@@ -36,8 +36,9 @@ def data_find(soup):
     msgRoot.attach(msgAlternative)
     html_List =""
     i = 0
+    index = 0
 
-    results = soup.find_all("li", class_ = "s-item s-item__pl-on-bottom s-item--watch-at-corner", limit = 5)
+    results = soup.find_all("li", class_ = "s-item s-item__pl-on-bottom s-item--watch-at-corner", limit = 10)
 
     for products in results:
         lists = []
@@ -63,14 +64,11 @@ def data_find(soup):
             timeLeft = NaNObjects(products.find("span", class_ = "s-item__time-left"))
             bids = NaNObjects(products.find("span", class_ = "s-item__bids s-item__bidCount"))
             buyItNowNoNum = NaNObjects(products.find("span", class_ = "s-item__purchase-options-with-icon"))
-            link = products.find("a", class_ = "s-item__link")["href"]
+            link = products.find("a", class_ = "s-item__link")["href"].split("?")[0]
             imgLink = products.find("img", class_ = "s-item__image-img")["src"]
 
-            image = imgEmbed(imgLink)
             title = asciiErrorCheck(title)
             condition = asciiErrorCheck(condition)
-            linkShort = link.split("?")[0]
-            imageList.append(image)
 
             if(buyItNowPrice == "NaN"):
                 if(buyItNowNoNum != "NaN"):
@@ -85,10 +83,15 @@ def data_find(soup):
                 <span style="font-size: 20px;">Time Left:</span><span style="font-size: 15px;">  {timeLeft}</span><br>
                 <span style="font-size: 20px;">Bids:</span><span style="font-size: 15px;"> {bids}</span><br>
                 <span style="font-size: 20px;">Buy it Now?:</span><span style="font-size: 15px;"> {buyItNowPrice}</span><br>
-                <span style="font-size: 20px;">Link:</span><span style="font-size: 15px;"> {linkShort}</span><br>
-            </p>""".format(i = i, title = title, condition = condition, sellingPrice = sellingPrice, timeLeft = timeLeft, bids = bids, buyItNowPrice = buyItNowPrice, linkShort = linkShort)
+                <span style="font-size: 20px;">Link:</span><span style="font-size: 15px;"> {link}</span><br>
+            </p>""".format(i = i, title = title, condition = condition, sellingPrice = sellingPrice, timeLeft = timeLeft, bids = bids, buyItNowPrice = buyItNowPrice, link = link)
 
-            with open (imageList[i], 'rb') as img:
+
+            image, imageListFull = imgDownaload(imgLink,imageList)
+            
+
+
+            with open (image, 'rb') as img:
                 msg_img = MIMEImage(img.read())
                 msg_img.add_header('Content-ID', '<image'+str(i)+'>')
                 msgRoot.attach(msg_img)
@@ -108,20 +111,16 @@ def data_find(soup):
 
     msgAlternative.attach(MIMEText(html_Full , "html"))
     msgRoot = msgRoot.as_string()
-    #print(msg)
-    return msgRoot, imageList
+    return msgRoot, imageListFull
 
 def priceCheck(a):
     a = float(a)
     print(a)
-    if a < 200:
+    if a < 150:
         return True
     else:
         return False
   
-
-
-
 def NaNObjects(x):
     if x == None:
         x = "NaN"
@@ -151,10 +150,17 @@ def concat(stringList):
         body += string
     return body
 
-def imgEmbed(img):
-    filename = img.split("/")[6] + ".jpg"
+def imgDownaload(img,imageList):
+    filename = img.split("/")[6]
+
+    for i in range(len(imageList)):
+        if filename == imageList[i]:
+            imageList.append(filename + str(i) + ".jpg")
+        else:
+            imageList.append(filename + ".jpg")
+
+
     r = requests.get(img, stream = True)
-    
     if r.status_code == 200:
         r.raw.decode_content = True
         with open(filename,'wb') as f:
@@ -164,9 +170,9 @@ def imgEmbed(img):
     else:
         print('Image Couldn\'t be retreived')
 
-    return filename 
+    return filename, imageList 
 
-def send_mail(msg, imageList):
+def send_mail(msg, imageListFull):
 
     smtp = smtplib.SMTP("smtp.gmail.com", 587)
     smtp.ehlo()
@@ -177,7 +183,7 @@ def send_mail(msg, imageList):
     print("mail has been sent")
     smtp.quit()
 
-    for image in imageList:
+    for image in imageListFull:
         os.remove(image)
 
 
@@ -187,5 +193,5 @@ def send_mail(msg, imageList):
 
 if __name__ == "__main__":
     data = data_get(URL)
-    msg, imageList = data_find(data)
-    send_mail(msg, imageList)
+    msg, imageListFull = data_find(data)
+    send_mail(msg, imageListFull)
