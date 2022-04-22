@@ -27,6 +27,10 @@ def data_get(URL):
 
 def data_find(soup):
     imageList = []
+    html_List =""
+    i = 0
+
+
     msgRoot = MIMEMultipart('related')
     msgRoot['Subject'] = 'poo boy heres some cards'
     msgRoot['From'] = EMAIL_ADD
@@ -34,29 +38,25 @@ def data_find(soup):
     msgRoot.preamble = 'Multi-part message in MIME format.'
     msgAlternative = MIMEMultipart('alternative')
     msgRoot.attach(msgAlternative)
-    html_List =""
-    i = 0
-    index = 0
+    
 
     results = soup.find_all("li", class_ = "s-item s-item__pl-on-bottom s-item--watch-at-corner", limit = 10)
 
     for products in results:
-        lists = []
+        divlist = []
         priceList = products.find_all("div", class_ = "s-item__detail s-item__detail--primary")
 
         for prices in priceList:
-            lists.append(prices.find("span", class_ ="s-item__price"))
+            divlist.append(prices.find("span", class_ ="s-item__price"))
             
-        sellingPrice = NaNObjects(lists[0])
-        buyItNowPrice = NaNObjects(lists[2])
+        sellingPrice = NaNObjects(divlist[0])
+        buyItNowPrice = NaNObjects(divlist[2])
 
         sellingPrice = asciiErrorCheck(sellingPrice)
         buyItNowPrice = asciiErrorCheck(buyItNowPrice)
-        print(sellingPrice, buyItNowPrice)
+
         a = priceCheck(buyItNowPrice)
         b = priceCheck(sellingPrice)
-
-        print (a, b)
 
         if a or b == True:  
             title = NaNObjects(products.find("h3", class_ ="s-item__title"))
@@ -87,10 +87,7 @@ def data_find(soup):
             </p>""".format(i = i, title = title, condition = condition, sellingPrice = sellingPrice, timeLeft = timeLeft, bids = bids, buyItNowPrice = buyItNowPrice, link = link)
 
 
-            image, imageListFull = imgDownaload(imgLink,imageList)
-            
-
-
+            image, imageListFull = imgDownaload(imgLink,imageList,i)
             with open (image, 'rb') as img:
                 msg_img = MIMEImage(img.read())
                 msg_img.add_header('Content-ID', '<image'+str(i)+'>')
@@ -150,15 +147,8 @@ def concat(stringList):
         body += string
     return body
 
-def imgDownaload(img,imageList):
-    filename = img.split("/")[6]
-
-    for i in range(len(imageList)):
-        if filename == imageList[i]:
-            imageList.append(filename + str(i) + ".jpg")
-        else:
-            imageList.append(filename + ".jpg")
-
+def imgDownaload(img,imageList, i):
+    filename = img.split("/")[6] + str(i) +".jpg"
 
     r = requests.get(img, stream = True)
     if r.status_code == 200:
@@ -169,6 +159,8 @@ def imgDownaload(img,imageList):
         print('Image sucessfully Downloaded: ',filename)
     else:
         print('Image Couldn\'t be retreived')
+
+    imageList.append(filename)    
 
     return filename, imageList 
 
