@@ -9,6 +9,7 @@ import URLs_productElements
 import shutil
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from tkinter import *
+from tkinter.ttk import *
 from sqlalchemy import true
 from bs4 import BeautifulSoup
 from email.mime.multipart import MIMEMultipart
