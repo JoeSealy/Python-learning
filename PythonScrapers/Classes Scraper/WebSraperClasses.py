@@ -98,7 +98,8 @@ class SenchGetSoup:
 
     def data_find(self, key, item, AoP):
         AoP = int(AoP)
-        url = self.URLDictionary(key) + item
+        itemNew = self.itemStringCheck(item)
+        url = self.URLDictionary(key) + itemNew
         request = imports.requests.get(url, headers = HEADER)
         soup = imports.BeautifulSoup(request.text, "html.parser")
         SenchSiteScrape.filterOutData(SenchSiteScrape, key, soup, AoP)
@@ -121,8 +122,10 @@ class SenchGetSoup:
             "Shopify": " "                                                       #shopify 14 day free trail
         }
         return switch[key]
+    def itemStringCheck(item):
+        itemNew = item.replace(" ", "+")
+        return itemNew
 
-    
 class SenchSiteScrape:
     def __init__(self) -> None:
         self.productNo = 0
@@ -130,7 +133,15 @@ class SenchSiteScrape:
     def filterOutData(self, key, soup, AoP):
         if key == "Ebay":
             ddItemList, imageList = self.EbayProductData(self, soup, AoP)
+
+        if(key == "Amazon"):
+            ddItemList, imageList = self.AmazonProductData(self, soup, AoP)
         
+        if(key == "Facebook"):
+           ddItemList, imageList = self.facebookProductData(self, soup, AoP)
+
+        if(key == "Etsy"): 
+           ddItemList, imageList = self.etsyProductData(self, soup, AoP)                        
         
         ddItemList = self.NoneError(ddItemList)
         imageList  = self.imgDownload(imageList)
@@ -169,6 +180,59 @@ class SenchSiteScrape:
             x+=1
 
         return ddItemList,imageList
+
+    def AmazonProductData(self, soup, AoP):
+            imageList = []
+            x = 0
+            ddItemList = [[]]*AoP
+            print(soup)
+            results = soup.find("span",class_ = "a-size-medium a-color-base a-text-normal")
+            #use API FOR AMAZON
+            # for products in results:
+            #     title = products.find("span", class_ = "a-size-medium a-color-base a-text-normal")
+            #     print (title) 
+            #     review = products.find("li", class_ = "a-icon a-icon-star-small a-star-small-4 aok-align-bottom").find("span", "a-icon a-icon-star-small a-star-small-4 aok-align-bottom")
+            #     amountofreview = products.find("span", class_ ="a-size-base s-underline-text")
+            #     priceWhole = products.find("span", class_ = "a-price-whole")
+            #     pricePence = products.find("span", class_ = "a-price-fraction")
+            #     dateRecievedBy = products.find("span", class_ = "a-text-bold")
+            #     if(products.find("span", class_ = "a-icon a-icon-prime a-icon-medium")):
+            #         primeBool = "Yes"
+            #     else:
+            #         primeBool = "No"
+            #     link = products.find("a", "a-size-base a-link-normal s-underline-text s-underline-link-text s-link-style a-text-normal")["href"].split("?")[0]
+            #     imgLink = products.find("img","s-image")["src"]
+
+    def facebookProductData(self, soup, AoP):
+        imageList = []
+        x = 0
+        ddItemList = [[]]*AoP
+        print(soup)
+        results = soup.find("span",class_ = "a8c37x1j ni8dbmo4 stjgntxs l9j0dhe7")
+        print(results)
+        
+        #Use the Facebook API
+    
+    def etsyProductData(self, soup, AoP):
+        imageList = []
+        x = 0
+        ddItemList = [[]]*AoP
+        results = soup.find_all("li",class_ = "wt-list-unstyled wt-grid__item-xs-6 wt-grid__item-md-4 wt-grid__item-lg-3 wt-order-xs-0 wt-order-md-0 wt-order-lg-0 wt-show-xs wt-show-md wt-show-lg", limit = AoP)
+        for products in results:
+            title = products.find("div", class_=" ").find("h3", )
+            stars = products.find("span", class_ = "screen-reader-only")
+            aOReviews = products.find("span", class_ = "wt-text-body-01 wt-nudge-b-1 wt-text-gray wt-display-inline-block")
+            price = products.find("span", class_ = "currency-value")
+            starSeller = products.find("div", class_ = "wt-nudge-b-1 wt-display-inline-flex-xs wt-flex-nowrap wt-align-items-center")
+            discount = products.find("p", class_ = "wt-text-caption search-collage-promotion-price wt-text-slimewt-text-truncate wt-no-wrap")
+            delivery = products.find("div", class_ = "wt-badge wt-badge--small wt-badge--sale-01")
+            #image = products.find("img", class_ = "data-listing-card-listing-image")["src"]
+            #link = products.find("a", class_ = "listing-link wt-display-inline-block5494d36ddec45237logged")["href"].split("?")[0]
+            print(title)
+            
+
+
+
 
     def NoneError(List):
         for x in range(len(List)):
