@@ -72,7 +72,7 @@ class SenchFrontEnd:
         if(self.number_items.get() == "" or self.item_entry.get() == "" or self.every_minutes.get() == "" or self.runs_for.get() == "" or self.option_var.get() =="Select an Option"):
             self.email_text["text"] = f"""You Must fill in all fields"""
         else:
-            SenchGetSoup.data_find(SenchGetSoup, self.option_var.get(), self.item_text.get(), self.number_items.get())
+            SenchSiteScrape.filterOutData(SenchSiteScrape, self.option_var.get(), self.item_text.get(), self.number_items.get())
 
 
 
@@ -92,69 +92,51 @@ class SenchFrontEnd:
             widgets.destroy()
 
 
-class SenchGetSoup:
-    def __init__(self)-> None:
-        pass
-
-    def data_find(self, key, item, AoP):
-        AoP = int(AoP)
-        itemNew = self.itemStringCheck(item)
-        url = self.URLDictionary(key) + itemNew
-        request = imports.requests.get(url, headers = HEADER)
-        soup = imports.BeautifulSoup(request.text, "html.parser")
-        SenchSiteScrape.filterOutData(SenchSiteScrape, key, soup, AoP)
-        
-
-
-    def URLDictionary(key):
-        switch = {  
-            "All":"""https://www.ebay.co.uk/sch/-
-                     https://www.amazon.co.uk/s?k=-
-                     https://www.facebook.com/marketplace/search/?query=-
-                     https://www.gumtree.com/search?search_category=all&q=-
-                     https://www.etsy.com/uk/search?q=""",
-
-            "Ebay": "https://www.ebay.co.uk/sch/" , 
-            "Amazon": "https://www.amazon.co.uk/s?k=", #think amazon double refreshes to prevent scrapping
-            "Facebook": "https://www.facebook.com/marketplace/search/?query=",
-            "Gumtree": "https://www.gumtree.com/search?search_category=all&q=", #%20 inbetween spaces
-            "Etsy": "https://www.etsy.com/uk/search?q=",  
-            "Shopify": " "                                                       #shopify 14 day free trail
-        }
-        return switch[key]
-    def itemStringCheck(item):
-        itemNew = item.replace(" ", "+")
-        return itemNew
-
 class SenchSiteScrape:
     def __init__(self) -> None:
         self.productNo = 0
 
-    def filterOutData(self, key, soup, AoP):
-        if key == "Ebay":
-            ddItemList, imageList = self.EbayProductData(self, soup, AoP)
+    def filterOutData(self, key, item, AoP):
+        AoP = int(AoP)
+        itemNew = self.itemStringCheck(item)
+
+        if (key == "Ebay"):
+            ddItemList, imageList = self.EbayProductData(self, itemNew , AoP)
 
         if(key == "Amazon"):
-            ddItemList, imageList = self.AmazonProductData(self, soup, AoP)
+            ddItemList, imageList = self.AmazonProductData(self, itemNew , AoP)
         
         if(key == "Facebook"):
-           ddItemList, imageList = self.facebookProductData(self, soup, AoP)
+           ddItemList, imageList = self.facebookProductData(self, itemNew, AoP)
 
         if(key == "Etsy"): 
-           ddItemList, imageList = self.etsyProductData(self, soup, AoP)                        
+           self.etsyProductData(self, itemNew, AoP)
+
+        if(key == "Gumtree"): 
+           ddItemList, imageList = self.GumtreeProductData(self, itemNew, AoP)                        
         
+
         ddItemList = self.NoneError(ddItemList)
         imageList  = self.imgDownload(imageList)
-
         msgRoot = self.makingEmail(ddItemList, imageList)
         senchEmail.send(senchEmail, msgRoot, imageList)
-        
+    
+    def itemStringCheck(item):
+        itemNew = item.replace(" ", "+")
+        return itemNew
 
-    def EbayProductData(self, soup, AoP):
+    def EbayProductData(self, itemName, AoP):
+
+        url = "https://www.ebay.co.uk/sch/" + itemName
+        request = imports.requests.get(url, headers = HEADER)
+        soup = imports.BeautifulSoup(request.text, "html.parser")
+
         imageList = []
         x = 0
         ddItemList = [[]]*AoP
+
         results = soup.find_all("li", class_ = "s-item s-item__pl-on-bottom s-item--watch-at-corner", limit = AoP )
+
         for products in results:
             divlist = []
             priceList = products.find_all("div", class_ = "s-item__detail s-item__detail--primary")
@@ -181,12 +163,17 @@ class SenchSiteScrape:
 
         return ddItemList,imageList
 
-    def AmazonProductData(self, soup, AoP):
+    def AmazonProductData(self, itemName, AoP):
+
+            url =  "https://www.amazon.co.uk/s?k=" + itemName
+            request = imports.requests.get(url, headers = HEADER)
+            soup = imports.BeautifulSoup(request.text, "html.parser")
             imageList = []
             x = 0
             ddItemList = [[]]*AoP
             print(soup)
             results = soup.find("span",class_ = "a-size-medium a-color-base a-text-normal")
+
             #use API FOR AMAZON
             # for products in results:
             #     title = products.find("span", class_ = "a-size-medium a-color-base a-text-normal")
@@ -203,33 +190,51 @@ class SenchSiteScrape:
             #     link = products.find("a", "a-size-base a-link-normal s-underline-text s-underline-link-text s-link-style a-text-normal")["href"].split("?")[0]
             #     imgLink = products.find("img","s-image")["src"]
 
-    def facebookProductData(self, soup, AoP):
+    def facebookProductData(self, itemName, AoP):
+        url =  "https://www.amazon.co.uk/s?k=" + itemName
+        request = imports.requests.get(url, headers = HEADER)
+        soup = imports.BeautifulSoup(request.text, "html.parser")
+
         imageList = []
         x = 0
         ddItemList = [[]]*AoP
+
         print(soup)
         results = soup.find("span",class_ = "a8c37x1j ni8dbmo4 stjgntxs l9j0dhe7")
         print(results)
         
         #Use the Facebook API
     
-    def etsyProductData(self, soup, AoP):
-        imageList = []
-        x = 0
-        ddItemList = [[]]*AoP
-        results = soup.find_all("li",class_ = "wt-list-unstyled wt-grid__item-xs-6 wt-grid__item-md-4 wt-grid__item-lg-3 wt-order-xs-0 wt-order-md-0 wt-order-lg-0 wt-show-xs wt-show-md wt-show-lg", limit = AoP)
-        for products in results:
-            title = products.find("div", class_=" ").find("h3", )
-            stars = products.find("span", class_ = "screen-reader-only")
-            aOReviews = products.find("span", class_ = "wt-text-body-01 wt-nudge-b-1 wt-text-gray wt-display-inline-block")
-            price = products.find("span", class_ = "currency-value")
-            starSeller = products.find("div", class_ = "wt-nudge-b-1 wt-display-inline-flex-xs wt-flex-nowrap wt-align-items-center")
-            discount = products.find("p", class_ = "wt-text-caption search-collage-promotion-price wt-text-slimewt-text-truncate wt-no-wrap")
-            delivery = products.find("div", class_ = "wt-badge wt-badge--small wt-badge--sale-01")
-            #image = products.find("img", class_ = "data-listing-card-listing-image")["src"]
-            #link = products.find("a", class_ = "listing-link wt-display-inline-block5494d36ddec45237logged")["href"].split("?")[0]
-            print(title)
+    def etsyProductData(self, itemName, AoP):
+        List = []
+        url =  "https://www.etsy.com/uk/search?q=" + itemName
+        request = imports.requests.get(url, headers = HEADER)
+        soup = imports.BeautifulSoup(request.content, "lxml")
+        results = soup.find("li", class_ ="wt-list-unstyled wt-grid__item-xs-6 wt-grid__item-md-4 wt-grid__item-lg-3 wt-order-xs-2 wt-order-md-0 wt-order-lg-0 wt-show-xs wt-show-md wt-show-lg")
+        print(results)  
+
+
+        #imageList = []
+        #x = 0
+        #ddItemList = [[]]*AoP
+        #results = soup.find_all("li",class_ = "wt-list-unstyled wt-grid__item-xs-6 wt-grid__item-md-4 wt-grid__item-lg-3 wt-order-xs-0 wt-order-md-0 wt-order-lg-0 wt-show-xs wt-show-md wt-show-lg", limit = AoP)
+        #for products in results:
+            #title = products.find("div", class_="").find("h3","wt-text-caption v2-listing-card__titlewt-text-truncate")
+            # stars = products.find("span", class_ = "screen-reader-only")
+            # aOReviews = products.find("span", class_ = "wt-text-body-01 wt-nudge-b-1 wt-text-gray wt-display-inline-block")
+            # price = products.find("span", class_ = "currency-value")
+            # starSeller = products.find("div", class_ = "wt-nudge-b-1 wt-display-inline-flex-xs wt-flex-nowrap wt-align-items-center")
+            # discount = products.find("p", class_ = "wt-text-caption search-collage-promotion-price wt-text-slimewt-text-truncate wt-no-wrap")
+            # delivery = products.find("div", class_ = "wt-badge wt-badge--small wt-badge--sale-01")
+            # #image = products.find("img", class_ = "data-listing-card-listing-image")["src"]
+            # #link = products.find("a", class_ = "listing-link wt-display-inline-block5494d36ddec45237logged")["href"].split("?")[0]
+            #print(title)
             
+    def GumtreeProductData(self, itemName, AoP):
+
+        url =  "https://www.gumtree.com/search?search_category=all&q=" + itemName
+        request = imports.requests.get(url, headers = HEADER)
+        soup = imports.BeautifulSoup(request.text, "html.parser")
 
 
 
