@@ -3,15 +3,15 @@
 # using Tkinter
 #importing the required libraries
 import tkinter as Tkinter
-from openpyxl import Workbook
+from openpyxl import load_workbook
 from datetime import datetime
 from datetime import date
+import xlsxwriter
+
+from sqlalchemy import column
 
 counter = 0
 running = False
-wb = Workbook()
-worksheet = wb.active
-
 def counter_label(label):
     def count():
         if running:
@@ -83,12 +83,22 @@ def Reset(label):
         label['text']='Starting...'
 
 def Saving():
-    today = date.today()
-    dayNum = today.strftime("%B %d, %Y") 
-    time = datetime.fromtimestamp(counter)
-    string = time.strftime("%H:%M:%S")
-    worksheet.append({"A": dayNum, "B": string})	
-    wb.save("C:/Users/joese/Desktop/work.xlsx") 
+    writen = False
+    row = 1
+    col = 1
+
+    wb = load_workbook("C:/Users/joese/Desktop/Work.xlsx")
+    ws = wb['Sheet1']
+    dayNum = date.today().strftime("%B %d, %Y") 
+    string = datetime.fromtimestamp(counter).strftime("%H:%M:%S")
+    while writen == False:
+        if ws.cell(row, col).value == None: 
+            ws.cell(row, col).value = dayNum  	
+            ws.cell(row, col+1).value = string
+            wb.save("C:/Users/joese/Desktop/work.xlsx")
+            writen=True 
+        row += 1
+
 
 
 root = Tkinter.Tk()
