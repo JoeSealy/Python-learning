@@ -47,6 +47,7 @@ def Start(label):
     start['state']='disabled'
     stop['state']='normal'
     reset['state']='normal'
+    save['state']='disabled'
    
 # Stop function of the stopwatch
 def Stop():
@@ -54,9 +55,19 @@ def Stop():
     start['state']='normal'
     stop['state']='disabled'
     reset['state']='normal'
+    save['state']='normal'
     running = False
-    Save()
-   
+
+def Save(label):
+    global running
+    start['state']='normal'
+    stop['state']='disabled'
+    reset['state']='normal' 
+    save['state']="disabled"
+    label['text']='Saved'
+    Saving()
+
+
 # Reset function of the stopwatch
 def Reset(label):
     global counter
@@ -71,7 +82,7 @@ def Reset(label):
     else:               
         label['text']='Starting...'
 
-def Save():
+def Saving():
     today = date.today()
     dayNum = today.strftime("%B %d, %Y") 
     time = datetime.fromtimestamp(counter)
@@ -91,8 +102,10 @@ f = Tkinter.Frame(root)
 start = Tkinter.Button(f, text='Start', width=6, command=lambda:Start(label))
 stop = Tkinter.Button(f, text='Stop',width=6,state='disabled', command=Stop)
 reset = Tkinter.Button(f, text='Reset',width=6, state='disabled', command=lambda:Reset(label))
+save = Tkinter.Button(f, text = "Save", width=6, state='disabled', command=lambda:Save(label))
 f.pack(anchor = 'center',pady=5)
 start.pack(side="left")
 stop.pack(side ="left")
 reset.pack(side="left")
+save.pack(side = "left")
 root.mainloop()
